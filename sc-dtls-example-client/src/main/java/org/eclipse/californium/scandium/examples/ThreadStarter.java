@@ -54,7 +54,7 @@ public class ThreadStarter {
 	}
 	
 	public void run() throws IOException {
-		LOG.error("Listening at {}:{}", srvSocket.getInetAddress(), srvSocket.getLocalPort());
+		LOG.info("Listening at {}:{}", srvSocket.getInetAddress(), srvSocket.getLocalPort());
 		do {
 			cmdSocket = srvSocket.accept();
 			BufferedReader in = new BufferedReader(new InputStreamReader(cmdSocket.getInputStream()));

@@ -30,18 +30,22 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import java.util.Arrays;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MessageCallback;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
+import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.CertificateKeyAlgorithm;
-import org.eclipse.californium.scandium.dtls.pskstore.PskStore;
-import org.eclipse.californium.scandium.dtls.pskstore.StaticPskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
+import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
+import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,8 +73,8 @@ public class ExampleDTLSClient implements Runnable {
 			builder.setSupportedCipherSuites(config.getCipherSuites());
 
 			if (config.getCipherSuites().stream().anyMatch(cs -> cs.isPskBased())) {
-				PskStore pskStore = new StaticPskStore(config.getPskIdentity(), config.getPskKey());
-				builder.setPskStore(pskStore);
+				AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore(config.getPskIdentity(), config.getPskKey());
+				builder.setAdvancedPskStore(pskStore);
 			}
 			if (config.getCipherSuites().stream()
 					.anyMatch(cs -> !cs.getCertificateKeyAlgorithm().equals(CertificateKeyAlgorithm.NONE))) {
@@ -83,15 +87,20 @@ public class ExampleDTLSClient implements Runnable {
 				KeyStore keyStore = KeyStore.getInstance("JKS");
 				InputStream inKey = config.getKeyInputStream();
 				keyStore.load(inKey, config.getKeyPassword().toCharArray());
-
-				builder.setIdentity(
-						(PrivateKey) keyStore.getKey(config.getKeyAlias(), config.getKeyPassword().toCharArray()),
-						keyStore.getCertificateChain(config.getKeyAlias()), CertificateType.X_509);
-
+				PrivateKey privateKey = (PrivateKey) keyStore.getKey(config.getKeyAlias(), config.getKeyPassword().toCharArray());
+				Certificate[] certificateChain = keyStore.getCertificateChain(config.getKeyAlias());
+				
+				builder.setCertificateIdentityProvider(new SingleCertificateProvider(
+						privateKey, certificateChain, CertificateType.X_509));
+				
 				// You can load multiple certificates if needed
-				Certificate[] trustedCertificates = new Certificate[1];
-				trustedCertificates[0] = trustStore.getCertificate(config.getTrustAlias());
-				builder.setTrustStore(trustedCertificates);
+				X509Certificate[] trustedCertificates = new X509Certificate[1];
+				trustedCertificates[0] = (X509Certificate) trustStore.getCertificate(config.getTrustAlias());
+				StaticNewAdvancedCertificateVerifier verifier = new StaticNewAdvancedCertificateVerifier(
+						trustedCertificates,
+						new RawPublicKeyIdentity[] {}, 
+						Arrays.asList(CertificateType.X_509));
+				builder.setAdvancedCertificateVerifier(verifier);
 			}
 
 			builder.setRetransmissionTimeout(config.getTimeout());

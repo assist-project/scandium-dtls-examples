@@ -5,7 +5,7 @@
 
 	<modelVersion>4.0.0</modelVersion>
 
-    <version>2.6.2</version>
+    <version>3.0.0-M2</version>
     <groupId>org.eclipse.californium.demo-apps</groupId>
 	<artifactId>sc-dtls-example-client</artifactId>
 
