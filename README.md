@@ -1,12 +1,12 @@
-## scandium-dtls-server
-A DTLS server application based on [Scandium/Californium][scandium] which is adapted from the example given in their repository but has a few more knobs that one can toy with.
+## scandium-dtls-clientserver
+A DTLS application based on [Scandium/Californium][scandium] which is adapted from the example given in their repository but has a few more knobs that one can toy with.
 
-It was used to test the Scandium DTLS implementations. 
-There are two versions of Scandium available, 1.x.y, and 2.x.y. 
-The APIs differ slightly between the two, hence I wrote separate applications, one for each version. 
-You can find these applications in the branches of this repo.
-The master is set to 2.x.y (since it is the most recent).
+It is used to test Scandium DTLS client/server implementations.
+Branches provide support for different versions of Scandium.
+The master (main) branch always follows the latest version of Scandium.
 
+Originally, there were two separate projects, one for clients the other for servers.
+We merged them together, since a lot of the code was duplicated across the two.
 
 [scandium]:https://github.com/eclipse/californium/tree/master/scandium-core
 
