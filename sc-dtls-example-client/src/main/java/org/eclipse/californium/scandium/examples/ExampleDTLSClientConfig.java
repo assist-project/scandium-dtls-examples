@@ -65,9 +65,6 @@ public class ExampleDTLSClientConfig {
 	@Parameter(names = "-starterAck", required = false, description = "Configured the thread starter to acknowledge each reset")
 	private boolean starterAck = false;
 	
-	@Parameter(names = "-continuous", required = false, description = "Do not stop thread starter after the learner closes the connection")
-	private boolean continuous = false;
-	
 	@Parameter(names = "-clientAuth", required = false, description = "Defines the authentication method.")
 	private ClientAuth clientAuth = ClientAuth.DISABLED;
 	
@@ -154,10 +151,6 @@ public class ExampleDTLSClientConfig {
 	
 	public boolean isStarterAck() {
 		return starterAck;
-	}
-	
-	public boolean isContinuous() {
-		return continuous;
 	}
 	
 	public Operation getOperation() {

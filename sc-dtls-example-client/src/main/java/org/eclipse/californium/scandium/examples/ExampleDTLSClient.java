@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
-public class ExampleDTLSClient implements Runnable {
+public class ExampleDTLSClient {
 	private static final int DEFAULT_PORT = 5684;
 	private static final String MESSAGE = "HELLO";
 	private static final Logger LOG = LoggerFactory.getLogger(ExampleDTLSClient.class);
@@ -174,7 +174,7 @@ public class ExampleDTLSClient implements Runnable {
 		}
 	}
 
-	private void startClient() {
+	public void startClient() {
 		try {
 			dtlsConnector.start();
 			startTest(new InetSocketAddress(InetAddress.getLoopbackAddress(), port));
@@ -189,7 +189,7 @@ public class ExampleDTLSClient implements Runnable {
 		}
 		LOG.info("Client stopped");
 	}
-
+	
 	private void startTest(InetSocketAddress peer) {
 		byte[] message = {};
 		if (operation == Operation.ONE_MESSAGE) {
@@ -197,17 +197,6 @@ public class ExampleDTLSClient implements Runnable {
 		}
 		RawData data = RawData.outbound(message, new AddressEndpointContext(peer), null, false);
 		dtlsConnector.send(data);
-	}
-
-	public void run() {
-		startClient();
-		try {
-			for (;;) {
-				Thread.sleep(10);
-			}
-		} catch (InterruptedException e) {
-			stopClient();
-		}
 	}
 
 	public boolean isRunning() {
@@ -224,7 +213,8 @@ public class ExampleDTLSClient implements Runnable {
 		try {
 			commander.parse(args);
 		} catch (ParameterException e) {
-			LOG.error("Could not parse provided parameters. ", e.getLocalizedMessage());
+			LOG.error("Could not parse provided parameters. ");
+			LOG.error(e.getLocalizedMessage());
 			commander.usage();
 			return;
 		}
@@ -240,11 +230,10 @@ public class ExampleDTLSClient implements Runnable {
 		if (config.getStarterAddress() == null) {
 			LOG.info("Waiting {} ms", config.getStartTimeout());
 			Thread.sleep(config.getStartTimeout());
-			client.run();
+			client.startClient();
 		} else {
 			try {
-				ThreadStarter ts = new ThreadStarter(() -> new ExampleDTLSClient(config), config.getStarterAddress(),
-						config.isContinuous(), config.getStartTimeout());
+				ThreadStarter ts = new ThreadStarter(() -> new ExampleDTLSClient(config), config.getStarterAddress(), config.getStartTimeout());
 				ts.run();
 			} catch (SocketException e) {
 				LOG.error(e.getLocalizedMessage());

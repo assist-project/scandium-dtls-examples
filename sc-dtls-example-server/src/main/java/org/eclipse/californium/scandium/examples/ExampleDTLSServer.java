@@ -50,7 +50,7 @@ import com.beust.jcommander.ParameterException;
 /**
  * A restartable echo-capable DTLS server.
  */
-public class ExampleDTLSServer extends Thread {
+public class ExampleDTLSServer {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ExampleDTLSServer.class.getName());
 
@@ -144,17 +144,6 @@ public class ExampleDTLSServer extends Thread {
 		LOG.info("DTLS example server stopped");
 	}
 
-	public void run() {
-		startServer();
-		try {
-			for (;;) {
-				Thread.sleep(10);
-			}
-		} catch (InterruptedException e) {
-			stopServer();
-		}
-	}
-
 	public boolean isRunning() {
 		return dtlsConnector.isRunning();
 	}
@@ -213,7 +202,8 @@ public class ExampleDTLSServer extends Thread {
 		try {
 			commander.parse(args);
 		} catch (ParameterException e) {
-			LOG.error("Could not parse provided parameters. ", e.getLocalizedMessage());
+			LOG.error("Could not parse provided parameters.");
+			LOG.error(e.getLocalizedMessage());
 			commander.usage();
 			return;
 		}
@@ -225,11 +215,10 @@ public class ExampleDTLSServer extends Thread {
 
 		final ExampleDTLSServer server = new ExampleDTLSServer(config);
 		if (config.getStarterAddress() == null) {
-			server.run();
+			server.startServer();
 		} else {
 			try {
-				ThreadStarter ts = new ThreadStarter(() -> new ExampleDTLSServer(config), config.getStarterAddress(),
-						config.isContinuous());
+				ThreadStarter ts = new ThreadStarter(() -> new ExampleDTLSServer(config), config.getStarterAddress());
 				ts.run();
 			} catch (SocketException e) {
 				LOG.error(e.getLocalizedMessage());
