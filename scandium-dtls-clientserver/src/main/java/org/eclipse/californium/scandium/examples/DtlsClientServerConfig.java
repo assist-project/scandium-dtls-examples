@@ -127,6 +127,10 @@ public class DtlsClientServerConfig {
 	public int getPort() {
 		return port;
 	}
+	
+	public void setPort(int port) {
+		this.port = port;
+	}
 
 	public List<CipherSuite> getCipherSuites() {
 		return cipherSuites;
@@ -152,7 +156,15 @@ public class DtlsClientServerConfig {
 		return operation;
 	}
 
+	public void setOperation(Operation operation) {
+		this.operation = operation;
+	}
+
 	public boolean isClient() {
 		return client;
+	}
+	
+	public void setClient(boolean client) {
+		this.client = client;
 	}
 }

@@ -14,7 +14,7 @@ public enum Operation {
 	
 	/**
 	 * Full mode of operation entails a continuous loop of handshaking and echo-ing data.
-	 * In this mode the server only terminates if the engine is closed. 
+	 * In this mode the client/server only terminates if the engine is closed. 
 	 */
 	FULL,
 }
