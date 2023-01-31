@@ -29,17 +29,17 @@ public class ThreadStarter {
 	public static final String RESP_STARTED = "started";
 
 	private ServerSocket srvSocket;
-	private Supplier<ExampleDTLSServer> serverBuilder;
-	private ExampleDTLSServer dtlsServer;
+	private Supplier<DtlsClientServer> clientServerBuilder;
+	private DtlsClientServer dtlsClientServer;
 	private Socket cmdSocket;
 	private Integer port;
 
-	public ThreadStarter(Supplier<ExampleDTLSServer> dtlsServerSupplier, String ipPort)
+	public ThreadStarter(Supplier<DtlsClientServer> dtlsServerSupplier, String ipPort)
 			throws IOException {
 		String[] addr = ipPort.split("\\:");
 		port = Integer.valueOf(addr[1]);
 		InetSocketAddress address = new InetSocketAddress(addr[0], port);
-		serverBuilder = dtlsServerSupplier;
+		clientServerBuilder = dtlsServerSupplier;
 		srvSocket = new ServerSocket();
 		srvSocket.setReuseAddress(true);
 		srvSocket.setSoTimeout(20000);
@@ -70,15 +70,15 @@ public class ThreadStarter {
 					switch (cmd.trim()) {
 					// command for killing the current server thread and spawning a new one
 					case CMD_START:
-						if (dtlsServer == null) {
-							dtlsServer = serverBuilder.get();
+						if (dtlsClientServer == null) {
+							dtlsClientServer = clientServerBuilder.get();
 						}
-						dtlsServer.startServer();
-						out.println(String.format("%s %d", RESP_STARTED, dtlsServer.getAddress().getPort()));
+						dtlsClientServer.start();
+						out.println(String.format("%s %d", RESP_STARTED, dtlsClientServer.getAddress().getPort()));
 						break;
 					case CMD_STOP:
-						if (dtlsServer != null) {
-							dtlsServer.stopServer();
+						if (dtlsClientServer != null) {
+							dtlsClientServer.stop();
 						}
 						out.println(RESP_STOPPED);
 						break;
@@ -88,7 +88,7 @@ public class ThreadStarter {
 						return;
 					}
 				} else {
-					LOG.warn("Received Nothing");
+					LOG.warn("Received nothing");
 					closeData();
 					break;
 				}
@@ -111,8 +111,8 @@ public class ThreadStarter {
 	}
 
 	private void closeData() throws IOException {
-		if (dtlsServer != null) {
-			dtlsServer.stopServer();
+		if (dtlsClientServer != null) {
+			dtlsClientServer.stop();
 		}
 		if (cmdSocket != null) {
 			cmdSocket.close();

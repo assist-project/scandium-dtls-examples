@@ -2,22 +2,18 @@
  * Copyright (c) 2015, 2017 Institute for Pervasive Computing, ETH Zurich and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v2.0
+ * are made available under the terms of the Eclipse Public License v1.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v20.html
+ *    http://www.eclipse.org/legal/epl-v10.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
  * Contributors:
  *    Matthias Kovatsch - creator and main architect
  *    Stefan Jucker - DTLS implementation
- *    Achim Kraus (Bosch Software Innovations GmbH) - add support for multiple clients
- *                                                    exchange multiple messages
- *    Achim Kraus (Bosch Software Innovations GmbH) - add client statistics
  *    Bosch Software Innovations GmbH - migrate to SLF4J
- *    Achim Kraus (Bosch Software Innovations GmbH) - add argument for payload length
  ******************************************************************************/
 package org.eclipse.californium.scandium.examples;
 
@@ -34,6 +30,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
+import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MessageCallback;
 import org.eclipse.californium.elements.RawData;
@@ -52,18 +49,23 @@ import org.slf4j.LoggerFactory;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
-public class ExampleDTLSClient {
-	private static final int DEFAULT_PORT = 5684;
-	private static final String MESSAGE = "HELLO";
-	private static final Logger LOG = LoggerFactory.getLogger(ExampleDTLSClient.class);
+/**
+ * A restartable echo-capable DTLS client/server.
+ */
+public class DtlsClientServer {
 
-	private static Integer port = DEFAULT_PORT;
+	private static final Logger LOG = LoggerFactory.getLogger(DtlsClientServer.class.getName());
 
 	private DTLSConnector dtlsConnector;
 	private Operation operation;
+	private boolean client;
+	private Integer port;
 
-	public ExampleDTLSClient(ExampleDTLSClientConfig config) {
+	public DtlsClientServer(DtlsClientServerConfig config) {
 		operation = config.getOperation();
+		client = config.isClient();
+		port = config.getPort();
+
 		try {
 			DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder();
 
@@ -104,9 +106,10 @@ public class ExampleDTLSClient {
 			}
 
 			builder.setRetransmissionTimeout(config.getTimeout());
+			builder.setMaxConnections(config.getMaxConnections());
 
+			builder.setReceiverThreadCount(2);
 			builder.setConnectionThreadCount(1);
-			builder.setReceiverThreadCount(1);
 
 			switch (config.getClientAuth()) {
 			case NEEDED:
@@ -121,84 +124,34 @@ public class ExampleDTLSClient {
 				builder.setClientAuthenticationWanted(false);
 			}
 			dtlsConnector = new DTLSConnector(builder.build());
-			dtlsConnector.setRawDataReceiver(new RawDataChannel() {
-
-				@Override
-				public void receiveData(RawData raw) {
-					if (dtlsConnector.isRunning()) {
-						receive(raw);
-					}
-				}
-			});
-
+			dtlsConnector.setRawDataReceiver(new RawDataChannelImpl(dtlsConnector));
 		} catch (GeneralSecurityException | IOException e) {
 			LOG.error("Could not load the keystore", e);
 		}
+
 	}
 
-	private void receive(RawData raw) {
-		MessageCallback callback = null;
-		if (operation == Operation.ONE_ECHO) {
-			callback = new MessageCallback() {
-				@Override
-				public void onSent() {
-					stopClient();
-				}
-
-				@Override
-				public void onError(Throwable error) {
-				}
-
-				@Override
-				public void onDtlsRetransmission(int flight) {
-				}
-
-				@Override
-				public void onContextEstablished(EndpointContext context) {
-
-				}
-
-				@Override
-				public void onConnecting() {
-				}
-			};
-		}
-
-		RawData data = RawData.outbound(raw.getBytes(), raw.getEndpointContext(), callback, false);
-		LOG.info("Received message: ", new String(raw.getBytes()));
-		if (operation == Operation.FULL || operation == Operation.ONE_ECHO) {
-			dtlsConnector.send(data);
-		}
-		if (operation == Operation.ONE_MESSAGE) {
-			stopClient();
-		}
-	}
-
-	public void startClient() {
+	public void start() {
 		try {
 			dtlsConnector.start();
-			startTest(new InetSocketAddress(InetAddress.getLoopbackAddress(), port));
+			LOG.info("DTLS {} started", role());
+			if (client) {
+				InetSocketAddress peer = new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
+				byte[] message = {};
+				RawData data = RawData.outbound(message, new AddressEndpointContext(peer), null, false);
+				dtlsConnector.send(data);
+			}
 		} catch (IOException e) {
-			LOG.error("Cannot start connector", e);
+			throw new IllegalStateException("Unexpected error starting the DTLS " + role(), e);
 		}
 	}
 
-	public void stopClient() {
-		if (dtlsConnector.isRunning()) {
-			dtlsConnector.destroy();
-		}
-		LOG.info("Client stopped");
+	public void stop() {
+		// we (hopefully) destroy any leftover state
+		dtlsConnector.destroy();
+		LOG.info("DTLS {} stopped", role());
 	}
 	
-	private void startTest(InetSocketAddress peer) {
-		byte[] message = {};
-		if (operation == Operation.ONE_MESSAGE) {
-			message = MESSAGE.getBytes();
-		}
-		RawData data = RawData.outbound(message, new AddressEndpointContext(peer), null, false);
-		dtlsConnector.send(data);
-	}
-
 	public boolean isRunning() {
 		return dtlsConnector.isRunning();
 	}
@@ -207,13 +160,61 @@ public class ExampleDTLSClient {
 		return dtlsConnector.getAddress();
 	}
 
-	public static void main(String[] args) throws InterruptedException {
-		ExampleDTLSClientConfig config = new ExampleDTLSClientConfig();
+	private class RawDataChannelImpl implements RawDataChannel {
+
+		private Connector connector;
+
+		public RawDataChannelImpl(Connector con) {
+			this.connector = con;
+		}
+
+		@Override
+		public void receiveData(final RawData raw) {
+			LOG.info("Received message: {}", new String(raw.getBytes()));
+			MessageCallback callback = null;
+			if (operation == Operation.ONE_ECHO) {
+				callback = new MessageCallback() {
+					@Override
+					public void onSent() {
+						stop();
+					}
+
+					@Override
+					public void onError(Throwable error) {
+					}
+
+					@Override
+					public void onDtlsRetransmission(int flight) {
+					}
+
+					@Override
+					public void onContextEstablished(EndpointContext context) {
+
+					}
+
+					@Override
+					public void onConnecting() {
+					}
+				};
+			}
+			RawData data = RawData.outbound(raw.getBytes(), raw.getEndpointContext(), callback, false);
+			if (operation == Operation.FULL || operation == Operation.ONE_ECHO) {
+				connector.send(data);
+			}
+		}
+	}
+	
+	public String role() {
+		return client ? "client" : "server";
+	}
+	
+	public static void main(String[] args) {
+		DtlsClientServerConfig config = new DtlsClientServerConfig();
 		JCommander commander = new JCommander(config);
 		try {
 			commander.parse(args);
 		} catch (ParameterException e) {
-			LOG.error("Could not parse provided parameters. ");
+			LOG.error("Could not parse provided parameters.");
 			LOG.error(e.getLocalizedMessage());
 			commander.usage();
 			return;
@@ -224,23 +225,19 @@ public class ExampleDTLSClient {
 			return;
 		}
 
-		port = config.getPort();
-
-		final ExampleDTLSClient client = new ExampleDTLSClient(config);
+		final DtlsClientServer clientServer = new DtlsClientServer(config);
 		if (config.getStarterAddress() == null) {
-			LOG.info("Waiting {} ms", config.getStartTimeout());
-			Thread.sleep(config.getStartTimeout());
-			client.startClient();
+			clientServer.start();
 		} else {
 			try {
-				ThreadStarter ts = new ThreadStarter(() -> new ExampleDTLSClient(config), config.getStarterAddress(), config.getStartTimeout());
+				ThreadStarter ts = new ThreadStarter(() -> new DtlsClientServer(config), config.getStarterAddress());
 				ts.run();
 			} catch (SocketException e) {
 				LOG.error(e.getLocalizedMessage());
-				client.stopClient();
+				clientServer.stop();
 			} catch (IOException e) {
 				LOG.error(e.getLocalizedMessage());
-				client.stopClient();
+				clientServer.stop();
 			}
 			;
 		}

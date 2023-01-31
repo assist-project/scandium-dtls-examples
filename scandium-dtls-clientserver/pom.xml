@@ -7,13 +7,13 @@
 
 	<version>3.0.0-M2</version>
 	<groupId>org.eclipse.californium.demo-apps</groupId>
-	<artifactId>sc-dtls-example-server</artifactId>
+	<artifactId>scandium-dtls-clientserver</artifactId>
 
-	<name>Sc-DTLS-Example-Server</name>
+	<name>Scandium-DTLS-ClientServer</name>
 	<description>Example code illustrating the usage &amp; configuration of Scandium</description>
 
 	<properties>
-		<assembly.mainClass>org.eclipse.californium.scandium.examples.ExampleDTLSServer</assembly.mainClass>
+		<assembly.mainClass>org.eclipse.californium.scandium.examples.DtlsClientServer</assembly.mainClass>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<project.build.javaVersion>1.8</project.build.javaVersion>
@@ -64,10 +64,10 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-							<mainClass>org.eclipse.californium.scandium.examples.ExampleDTLSServer</mainClass>
+							<mainClass>org.eclipse.californium.scandium.examples.DtlsClientServer</mainClass>
 						</manifest>
 					</archive>
-					<finalName>scandium-${project.version}-dtls-server</finalName>
+					<finalName>scandium-${project.version}-dtls-clientserver</finalName>
 					<appendAssemblyId>false</appendAssemblyId>
 				</configuration>
 
