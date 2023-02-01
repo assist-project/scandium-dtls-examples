@@ -65,9 +65,6 @@ public class DtlsClientServer {
 		try {
 			DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder();
 
-			// Allows us to use cipher suites such as TLS_PSK_WITH_AES_128_CBC_SHA256
-			// Only necessary in later (post 2.0.0) versions of Scandium.
-			builder.setRecommendedCipherSuitesOnly(false);
 			builder.setSupportedCipherSuites(config.getCipherSuites());
 
 			if (config.getCipherSuites().stream().anyMatch(cs -> cs.isPskBased())) {
